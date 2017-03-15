@@ -22,6 +22,12 @@ class Tools
         elseif ($factory_a->player == 1) return 1; // "a" est à moi je priorise l'autre
         elseif ($factory_b->player == 1) return -1;
 
+		elseif ($factory_a->player == -1 && $factory_b->player == -1)
+		{
+			if ($factory_a->cyborgsCount > $factory_b->cyborgsCount) return 1;
+			else return -1;
+		}
+		
         return 0;
     }
 

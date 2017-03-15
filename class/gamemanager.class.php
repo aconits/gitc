@@ -222,6 +222,25 @@ class GameManager
         $nbMine = count($this->TMyFactory);
         $nbAdv = count($this->TAdvFactory);
 
+		$cyborgsCountAdv = 0;
+		$cyborgsCountMine = 0;
+		foreach ($this->TAdvTroop as &$troop)
+		{
+			$cyborgsCountAdv += $troop->cyborgsCount;
+		}
+		foreach ($this->TMyTroop as &$troop)
+		{
+			$cyborgsCountMine += $troop->cyborgsCount;
+		}
+		
+		$total = $cyborgsCountAdv + $cyborgsCountMine;
+		$percentMine = $cyborgsCountMine * 100 / $total;
+		
+		$bonus_multiplicateur_adv = 1;
+		if ($percentMine > 75) {
+			$bonus_multiplicateur_adv = 2;
+		}
+		
         // TODO déterminer les usines les plus produtif qui vont être capturer par l'ennemie
 
         $bonus_multiplicateur = 1;
@@ -249,7 +268,7 @@ class GameManager
         foreach ($this->TAdvFactory as &$factory)
         {
             $factory->priority += Tools::getPointFromProduction($factory);
-            $factory->priority += Tools::getPointFromPlayerProximity($factory);
+            $factory->priority += Tools::getPointFromPlayerProximity($factory, $bonus_multiplicateur_adv);
 
             // TODO method pour savoir le total distance de mes usines est le plus faible
             // Tools::getPointFromTotalDistance($factory, 1);
