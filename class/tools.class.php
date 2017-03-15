@@ -54,14 +54,7 @@ class Tools
 
     static function getPointFromProduction(&$factory)
     {
-        $point = 0;
-        switch ($factory->productionCount) {
-            case 1: $point = 0.5; break;
-            case 2: $point = 1; break;
-            case 3: $point = 2; break;
-        }
-
-        return $point;
+        return $factory->productionCount; // Pour le moment le nombre de point c'est la production elle même
     }
 
     // TODO check priority

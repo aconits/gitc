@@ -1,5 +1,61 @@
 <?php
 
+//$array = array('Alpha', 'Beta', 'Gamma', 'Sigma');
+$array = array('Alpha1', 'Beta1');
+$array2 = array('Alpha', 'Beta', 'A', 'B', 'C');
+// Get Combination
+$t1 = uniqueCombination($array);
+$t2 = uniqueCombination($array2);
+//Sort
+sort($t1);
+sort($t2);
+
+//Pretty Print
+var_dump( $t1, $t2);
+
+/*foreach ($t2 as $combToMove)
+{
+    foreach ($t1 as $myComb)
+    {
+        $TTry[] = combinations(
+                array(
+                    $myComb,
+                    $combToMove
+                )
+        );
+    }
+}*/
+
+$array = array(
+    $t1,
+    $t2
+);
+$total = 1;
+foreach($array AS $a) $total = $total * count($a);
+echo $total;
+combination($array);
+
+
+//var_dump($TTry);
+function uniqueCombination($in, $minLength = 1, $max = 2000) {
+    $count = count($in);
+    $members = pow(2, $count);
+    $return = array();
+    for($i = 0; $i < $members; $i ++) {
+        $b = sprintf('%0' . $count . 'b', $i);
+        $out = array();
+        for($j = 0; $j < $count; $j ++) {
+            $b{$j} == '1' and $out[] = $in[$j];
+        }
+
+        count($out) >= $minLength && count($out) <= $max and $return[] = $out;
+    }
+    return $return;
+}
+
+
+exit;
+
 // TODO remove
 require 'data.php';
 require './class/gamemanager.class.php';

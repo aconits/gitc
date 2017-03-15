@@ -11,10 +11,10 @@ class Factory
     
 	private $TLink;
 	public $TDistance;
+
 	public $priority;
 
 	public $bomb_is_coming;
-	
     public $minimal_cyborgsCount;
     
     function __construct($id,$player,$cyborgsCount,$productionCount,$roundLeftToProduct,$arg5)

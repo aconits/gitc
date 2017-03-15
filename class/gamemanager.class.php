@@ -21,7 +21,7 @@ class GameManager
     public $TAdvBomb = array();
 
     public $initLinks = false;
-    public $nextTroopId;
+    public $nextTroopId; // Me servira pour créer mes propres Troop temporairement
 
     public $TFactoryLink = array();
 
@@ -44,23 +44,18 @@ class GameManager
         $this->initFactoryLink();
 
         $this->initPlayerFactory();
-        $this->initProduction();
         $this->initPlayerTroop();
         $this->initPlayerBomb();
     }
 
     private function initFactoryLink()
     {
-        if (!$this->initLinks)
+        if (!$this->initLinks) return;
+
+        $this->initLinks = true;
+        foreach ($this->TFactoryLink as $fk_factory => &$Tab)
         {
-            $this->initLinks = true;
-            foreach ($this->TFactoryLink as $fk_factory => &$Tab)
-            {
-                foreach ($Tab as &$TInfo)
-                {
-                    $this->TFactory[$fk_factory]->addLink($this->TFactory[$TInfo['fk_target']], $TInfo['distance']);
-                }
-            }
+            foreach ($Tab as &$TInfo) $this->TFactory[$fk_factory]->addLink($this->TFactory[$TInfo['fk_target']], $TInfo['distance']);
         }
     }
 
@@ -71,7 +66,7 @@ class GameManager
         {
             switch ($factory->player) {
                 case 1: // MINE
-                    $this->TMyFactory[$fk_factory] = &$factory;
+                    $this->TMyFactory[] = &$factory;
                     break;
                 case 0: // NEUTRAL
                     $this->TNeuFactory[$fk_factory] = &$factory;
@@ -80,21 +75,6 @@ class GameManager
                     $this->TAdvFactory[$fk_factory] = &$factory;
                     break;
             }
-        }
-    }
-
-    private function initProduction()
-    {
-        $this->productionMax = $this->productionNeu = $this->productionMine = $this->productionAdv = 0;
-        foreach ($this->TFactory as &$factory)
-        {
-            $production = empty($factory->roundLeftToProduct) ? $factory->productionCount : 0;
-
-            if ($factory->player == 1) $this->productionMine += $production;
-            elseif ($factory->player == -1) $this->productionAdv += $production;
-            else $this->productionNeu += $production;
-
-            $this->productionMax += $production;
         }
     }
 
@@ -143,6 +123,8 @@ class GameManager
         $TAction = array();
 
         $this->determinatePriority();
+
+
 
         $TFactoryPriority = array_merge($this->TNeuFactory, $this->TMyFactory, $this->TAdvFactory);
         usort($TFactoryPriority, array('Tools', 'orderByPriority'));
@@ -232,8 +214,74 @@ $r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
         else return implode(';', $TAction);
     }
 
+    public function getAllCombinations(&$array1, &$array2)
+    {
+        $num = count($array2);
+        $comb = array();
+
+//The total number of possible combinations
+        $total = pow(2, $num);
+
+//Loop through each possible combination
+        for ($i = 0; $i < $total; $i++)
+        {
+            $flag = '';
+            //For each combination check if each bit is set
+            for ($j = 0; $j < $num; $j++)
+            {
+                //Is bit $j set in $i?
+                if (pow(2, $j) & $i)
+                    $flag = $flag.''.$array2[$j];
+            }
+            if(!empty($flag))
+                $comb[] = $flag;
+        }
+
+// Now $comb has all the possible combinations of $array2
+// Just loop it through the other array and concat
+
+        $result = array();
+        foreach($array1 as $val)
+        {
+            foreach($comb as $co)
+                $result[] = $val."".$co;
+        }
+
+        return $result;
+    }
+
+    private function getAllCombinationsFromFactories(&$TFactory, $minLength = 1, $max = 50)
+    {
+        $count = count($TFactory);
+        $members = pow(2, $count);
+        $return = array();
+        for($i = 0; $i < $members; $i ++)
+        {
+            $b = sprintf("%0" . $count . "b", $i);
+            $out = array();
+            for($j = 0; $j < $count; $j ++) $b{$j} == '1' and $out[] = &$TFactory[$j];
+
+            count($out) >= $minLength && count($out) <= $max and $return[] = $out;
+        }
+
+        return $return;
+    }
+
     private function determinatePriority()
     {
+        // TODO [ici] - je récupère toutes les combinaisons de mes usines pour les diffentes attaques possibles
+        $TMyFactoryCombination = $this->getAllCombinationsFromFactories($this->TMyFactory);
+        // TODO [ici] - je récupère toutes les combinaisons des usines disponibles de la partie
+        //              pour comparer avec toutes les combinaisons de mes usines afin de déterminer
+        //              quelle combi est la plus avantageuse
+        $TAllFactory = $this->getAllCombinationsFromFactories($this->TFactory);
+
+        $TFactoryTarget = $this->getAllCombinationsToMove();
+        var_dump();
+        exit;
+
+
+
         $nbNeu = count($this->TNeuFactory);
         $nbMine = count($this->TMyFactory);
         $nbAdv = count($this->TAdvFactory);
@@ -398,7 +446,7 @@ $factory->priority += $p;
     function saveTroop($id,$player,$fk_factory_start,$fk_factory_target,$cyborgsCount,$roundLeft)
     {
         if (!isset($this->TTroop[$id])) $this->addTroop($id,$player,$fk_factory_start,$fk_factory_target,$cyborgsCount,$roundLeft);
-        else $this->updateTroop($id,$player,$fk_factory_start,$fk_factory_target,$cyborgsCount,$roundLeft);
+        //else $this->updateTroop($id,$player,$fk_factory_start,$fk_factory_target,$cyborgsCount,$roundLeft);
     }
 
     function addTroop($id,$player,$fk_factory_start,$fk_factory_target,$cyborgsCount,$roundLeft)
@@ -446,7 +494,7 @@ $factory->priority += $p;
     function saveBomb($id,$player,$fk_factory_start,$fk_factory_target,$roundLeft,$arg5)
     {
         if (!isset($this->TBomb[$id])) $this->addBomb($id,$player,$fk_factory_start,$fk_factory_target,$roundLeft,$arg5);
-        else $this->updateBomb($id,$player,$fk_factory_start,$fk_factory_target,$roundLeft,$arg5);
+        //else $this->updateBomb($id,$player,$fk_factory_start,$fk_factory_target,$roundLeft,$arg5);
     }
 
     function addBomb($id,$player,$fk_factory_start,$fk_factory_target,$roundLeft,$arg5)
