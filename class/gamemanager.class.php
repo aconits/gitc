@@ -2,7 +2,7 @@
 
 class GameManager
 {
-    public static $waitCount = 0;
+    public static $percentMine;
 
     public static $roundNumber = 0;
     public static $TLastTargetedByBomb = array();
@@ -184,18 +184,34 @@ class GameManager
             if (!$skip)
             {
                 if (GameManager::$roundNumber == 1) $nbCyborgsToSend = $factory->cyborgsCount+1;
+				elseif (self::$percentMine > 90) $nbCyborgsToSend = $factory->cyborgsCount*2;
+				
                 else $nbCyborgsToSend = ceil($factory->cyborgsCount * 0.3); // TODO à déterminer pour éviter que toutes mes usines flood la même cible
 
-
+$r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
+                    //error_log(var_export($r,true));
+                    if ($r < 0) continue;
+					
                 $TMyFactory = $factory->getTMyFactoryNearestWithQty($nbCyborgsToSend);
 
-
+				$nbIsC=0;
+				if ($factory->player == 1)
+				{
+					$nbIsC = $this->getAllTroopGoingTo($factory->id, 1);
+					
+				}
+				
+				
                 foreach ($TMyFactory as &$myFactory)
                 {
                     if($factory->id == $myFactory->id)
                     {
                         $nbCyborgsToSend -= $myFactory->cyborgsCount;
                     }
+					elseif ($factory->player == 1 && $myFactory->cyborgsCount <= $nbIsC)
+					{
+						continue;
+					}
                     else
                     {
                         if ($nbCyborgsToSend <= $factory->cyborgsCount) $toSend = $factory->cyborgsCount;
@@ -224,21 +240,18 @@ class GameManager
 
 		$cyborgsCountAdv = 0;
 		$cyborgsCountMine = 0;
-		foreach ($this->TAdvTroop as &$troop)
-		{
-			$cyborgsCountAdv += $troop->cyborgsCount;
-		}
-		foreach ($this->TMyTroop as &$troop)
-		{
-			$cyborgsCountMine += $troop->cyborgsCount;
-		}
+		foreach ($this->TAdvFactory as &$f) $cyborgsCountAdv += $f->cyborgsCount;
+		foreach ($this->TAdvTroop as &$t) $cyborgsCountAdv += $t->cyborgsCount;
+		
+		foreach ($this->TMyFactory as &$f) $cyborgsCountMine += $f->cyborgsCount;
+		foreach ($this->TMyTroop as &$t) $cyborgsCountMine += $t->cyborgsCount;
 		
 		$total = $cyborgsCountAdv + $cyborgsCountMine;
-		$percentMine = $cyborgsCountMine * 100 / $total;
+		self::$percentMine = $cyborgsCountMine * 100 / $total;
 		
 		$bonus_multiplicateur_adv = 1;
-		if ($percentMine > 75) {
-			$bonus_multiplicateur_adv = 2;
+		if (self::$percentMine > 90) {
+			$bonus_multiplicateur_adv = 3;
 		}
 		
         // TODO déterminer les usines les plus produtif qui vont être capturer par l'ennemie
@@ -268,7 +281,10 @@ class GameManager
         foreach ($this->TAdvFactory as &$factory)
         {
             $factory->priority += Tools::getPointFromProduction($factory);
-            $factory->priority += Tools::getPointFromPlayerProximity($factory, $bonus_multiplicateur_adv);
+           
+			$p = Tools::getPointFromPlayerProximity($factory, $bonus_multiplicateur_adv);
+            if ($bonus_multiplicateur_adv > 1) { $p = abs($p); error_log('$p == '.$p); }
+$factory->priority += $p;
 
             // TODO method pour savoir le total distance de mes usines est le plus faible
             // Tools::getPointFromTotalDistance($factory, 1);
