@@ -3,6 +3,7 @@
 //$array = array('Alpha', 'Beta', 'Gamma', 'Sigma');
 $array = array('Alpha1', 'Beta1');
 $array2 = array('Alpha', 'Beta', 'A', 'B', 'C');
+
 // Get Combination
 $t1 = uniqueCombination($array);
 $t2 = uniqueCombination($array2);
@@ -13,28 +14,37 @@ sort($t2);
 //Pretty Print
 var_dump( $t1, $t2);
 
-/*foreach ($t2 as $combToMove)
+function generate_combinations(array $data, array &$all = array(), array $group = array(), $value = null, $i = 0)
 {
-    foreach ($t1 as $myComb)
-    {
-        $TTry[] = combinations(
-                array(
-                    $myComb,
-                    $combToMove
-                )
-        );
+    $keys = array_keys($data);
+    if (isset($value) === true) {
+        array_push($group, $value);
     }
-}*/
 
-$array = array(
+    if ($i >= count($data)) {
+        array_push($all, $group);
+    } else {
+        $currentKey     = $keys[$i];
+        $currentElement = $data[$currentKey];
+        foreach ($currentElement as $val) {
+            generate_combinations($data, $all, $group, $val, $i + 1);
+        }
+    }
+
+    return $all;
+}
+
+$data = array(
     $t1,
     $t2
 );
-$total = 1;
-foreach($array AS $a) $total = $total * count($a);
-echo $total;
-combination($array);
 
+$combos = generate_combinations($data);
+//print_r($combos);
+
+var_dump($combos);
+
+exit;
 
 //var_dump($TTry);
 function uniqueCombination($in, $minLength = 1, $max = 2000) {

@@ -213,42 +213,34 @@ $r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
         if (empty($TAction)) return 'WAIT';
         else return implode(';', $TAction);
     }
+	
+	/**
+	 * Generate all the possible combinations among a set of nested arrays.
+	 *
+	 * @param array $data  The entrypoint array container.
+	 * @param array $all   The final container (used internally).
+	 * @param array $group The sub container (used internally).
+	 * @param mixed $val   The value to append (used internally).
+	 * @param int   $i     The key index (used internally).
+	 */
+	private function generateAllCombinations(array &$data, array &$all = array(), array $group = array(), $value = null, $i = 0)
+	{
+		$keys = array_keys($data);
+		if (isset($value) === true) array_push($group, $value);
 
-    public function getAllCombinations(&$array1, &$array2)
-    {
-        $num = count($array2);
-        $comb = array();
+		if ($i >= count($data)) array_push($all, $group);
+		else
+		{
+			$currentKey     = $keys[$i];
+			$currentElement = $data[$currentKey];
+			foreach ($currentElement as $val)
+			{
+				$this->generate_combinations($data, $all, $group, $val, $i + 1);
+			}
+		}
 
-//The total number of possible combinations
-        $total = pow(2, $num);
-
-//Loop through each possible combination
-        for ($i = 0; $i < $total; $i++)
-        {
-            $flag = '';
-            //For each combination check if each bit is set
-            for ($j = 0; $j < $num; $j++)
-            {
-                //Is bit $j set in $i?
-                if (pow(2, $j) & $i)
-                    $flag = $flag.''.$array2[$j];
-            }
-            if(!empty($flag))
-                $comb[] = $flag;
-        }
-
-// Now $comb has all the possible combinations of $array2
-// Just loop it through the other array and concat
-
-        $result = array();
-        foreach($array1 as $val)
-        {
-            foreach($comb as $co)
-                $result[] = $val."".$co;
-        }
-
-        return $result;
-    }
+		return $all;
+	}
 
     private function getAllCombinationsFromFactories(&$TFactory, $minLength = 1, $max = 50)
     {
@@ -275,9 +267,11 @@ $r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
         //              pour comparer avec toutes les combinaisons de mes usines afin de déterminer
         //              quelle combi est la plus avantageuse
         $TAllFactory = $this->getAllCombinationsFromFactories($this->TFactory);
-
-        $TFactoryTarget = $this->getAllCombinationsToMove();
-        var_dump();
+		
+		
+		$data = array($TMyFactoryCombination, $TAllFactory);
+        $TFactoryToMove = $this->generateAllCombinations($data);
+        
         exit;
 
 
