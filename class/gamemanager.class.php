@@ -5,7 +5,6 @@ class GameManager
     public static $percentMine;
 
     public static $roundNumber = 0;
-    public static $TLastTargetedByBomb = array();
 
     public $TFactory = array(); // Contain all factories
     public $TMyFactory = array(); // only mine
@@ -66,7 +65,7 @@ class GameManager
         {
             switch ($factory->player) {
                 case 1: // MINE
-                    $this->TMyFactory[] = &$factory;
+                    $this->TMyFactory[$fk_factory] = &$factory;
                     break;
                 case 0: // NEUTRAL
                     $this->TNeuFactory[$fk_factory] = &$factory;
@@ -214,65 +213,66 @@ $r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
         else return implode(';', $TAction);
     }
 	
-	/**
-	 * Generate all the possible combinations among a set of nested arrays.
-	 *
-	 * @param array $data  The entrypoint array container.
-	 * @param array $all   The final container (used internally).
-	 * @param array $group The sub container (used internally).
-	 * @param mixed $val   The value to append (used internally).
-	 * @param int   $i     The key index (used internally).
-	 */
-	private function generateAllCombinations(array &$data, array &$all = array(), array $group = array(), $value = null, $i = 0)
+
+	private function generateAllCombinations(&$sourceDataSet, $subsetSize=null)
 	{
-		$keys = array_keys($data);
-		if (isset($value) === true) array_push($group, $value);
-
-		if ($i >= count($data)) array_push($all, $group);
-		else
-		{
-			$currentKey     = $keys[$i];
-			$currentElement = $data[$currentKey];
-			foreach ($currentElement as $val)
-			{
-				$this->generate_combinations($data, $all, $group, $val, $i + 1);
-			}
-		}
-
-		return $all;
+        return Permutation::get($sourceDataSet, $subsetSize);
 	}
 
-    private function getAllCombinationsFromFactories(&$TFactory, $minLength = 1, $max = 50)
-    {
-        $count = count($TFactory);
-        $members = pow(2, $count);
-        $return = array();
-        for($i = 0; $i < $members; $i ++)
-        {
-            $b = sprintf("%0" . $count . "b", $i);
-            $out = array();
-            for($j = 0; $j < $count; $j ++) $b{$j} == '1' and $out[] = &$TFactory[$j];
-
-            count($out) >= $minLength && count($out) <= $max and $return[] = $out;
-        }
-
-        return $return;
-    }
 
     private function determinatePriority()
     {
+        $TMyKey = array_keys($this->TMyFactory);
+        $TMyKeyFactoryCombination = array();
+
+        $TAllKey = array_keys($this->TFactory); // TODO point d'optimisation, retirer les clés des usines avec une production à 0
+        $TAllKeyFactoryCombination = array();
+
+        $max_iteration = min(count($this->TMyFactory), 3);
+        for ($i=1; $i<=$max_iteration; $i++)
+        {
+            $TMyKeyFactoryCombination[] = $this->generateAllCombinations($TMyKey, $i);
+        }
+
+        // TODO la génération de cette permutation peut être généré une seule fois au tout début de la partie
+$start = microtime(true);
+        $max_iteration = min(count($this->TFactory), 3);
+        for ($i=1; $i<=$max_iteration;$i++)
+        {
+            $TAllKeyFactoryCombination[] = $this->generateAllCombinations($TAllKey, $i);
+        }
+echo  (microtime(true) - $start);
+        //var_dump($TAllKeyFactoryCombination);
+        exit;
         // TODO [ici] - je récupère toutes les combinaisons de mes usines pour les diffentes attaques possibles
-        $TMyFactoryCombination = $this->getAllCombinationsFromFactories($this->TMyFactory);
+
+//        var_dump($TMyKeyFactoryCombination);
+//        exit;
+
         // TODO [ici] - je récupère toutes les combinaisons des usines disponibles de la partie
         //              pour comparer avec toutes les combinaisons de mes usines afin de déterminer
         //              quelle combi est la plus avantageuse
-        $TAllFactory = $this->getAllCombinationsFromFactories($this->TFactory);
-		
-		
-		$data = array($TMyFactoryCombination, $TAllFactory);
-        $TFactoryToMove = $this->generateAllCombinations($data);
-        
+
+
+// TODO trouver le moyen de limiter la longueur
+
+        var_dump($TAllKeyFactoryCombination);
         exit;
+/*
+        foreach ($TFactoryToMove as &$Tab)
+        {
+            $TMyFactory = &$Tab[0];
+            $TAdvFactory = &$Tab[1];
+
+            foreach ($TMyFactory as &$myFactory)
+            {
+
+            }
+        }
+*/
+
+return '';
+
 
 
 

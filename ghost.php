@@ -1,71 +1,5 @@
 <?php
 
-//$array = array('Alpha', 'Beta', 'Gamma', 'Sigma');
-$array = array('Alpha1', 'Beta1');
-$array2 = array('Alpha', 'Beta', 'A', 'B', 'C');
-
-// Get Combination
-$t1 = uniqueCombination($array);
-$t2 = uniqueCombination($array2);
-//Sort
-sort($t1);
-sort($t2);
-
-//Pretty Print
-var_dump( $t1, $t2);
-
-function generate_combinations(array $data, array &$all = array(), array $group = array(), $value = null, $i = 0)
-{
-    $keys = array_keys($data);
-    if (isset($value) === true) {
-        array_push($group, $value);
-    }
-
-    if ($i >= count($data)) {
-        array_push($all, $group);
-    } else {
-        $currentKey     = $keys[$i];
-        $currentElement = $data[$currentKey];
-        foreach ($currentElement as $val) {
-            generate_combinations($data, $all, $group, $val, $i + 1);
-        }
-    }
-
-    return $all;
-}
-
-$data = array(
-    $t1,
-    $t2
-);
-
-$combos = generate_combinations($data);
-//print_r($combos);
-
-var_dump($combos);
-
-exit;
-
-//var_dump($TTry);
-function uniqueCombination($in, $minLength = 1, $max = 2000) {
-    $count = count($in);
-    $members = pow(2, $count);
-    $return = array();
-    for($i = 0; $i < $members; $i ++) {
-        $b = sprintf('%0' . $count . 'b', $i);
-        $out = array();
-        for($j = 0; $j < $count; $j ++) {
-            $b{$j} == '1' and $out[] = $in[$j];
-        }
-
-        count($out) >= $minLength && count($out) <= $max and $return[] = $out;
-    }
-    return $return;
-}
-
-
-exit;
-
 // TODO remove
 require 'data.php';
 require './class/gamemanager.class.php';
@@ -73,6 +7,7 @@ require './class/factory.class.php';
 require './class/troop.class.php';
 require './class/bomb.class.php';
 require './class/tools.class.php';
+require './class/permutation.class.php';
 
 $manager = new GameManager;
 
