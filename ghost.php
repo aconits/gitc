@@ -22,12 +22,18 @@ $manager = new GameManager;
 //
 //    //error_log(',\''.$factory1.' '.$factory2.' '.$distance.'\'');
 //}
-
+$TFactId=array();
 foreach ($TLink as $s)
 {
     list($factory1, $factory2, $distance) = explode(' ', $s);
     $manager->addLink($factory1, $factory2, $distance);
+	
+	$TFactId[$factory1] = $factory1;
+	$TFactId[$factory2] = $factory2;
 }
+
+GameManager::initAllCombinations($TFactId); // Pars du principe que toutes les usines sont liés entre elles
+unset($TFactId);
 
 //error_log(var_export($manager->TFactoryLink[14],true));
 //exit;

@@ -5,7 +5,8 @@ class GameManager
     public static $percentMine;
 
     public static $roundNumber = 0;
-
+	public static $TAllKeyFactoryCombination=array();
+	
     public $TFactory = array(); // Contain all factories
     public $TMyFactory = array(); // only mine
     public $TNeuFactory = array();
@@ -113,6 +114,16 @@ class GameManager
         }
     }
 
+	
+	public static function initAllCombinations(&$sourceDataSet, $subsetSize=4)
+	{
+		//$start = microtime(true);
+		for($i=1; $i<=$subsetSize; $i++)
+		{
+			self::$TAllKeyFactoryCombination = array_merge(self::$TAllKeyFactoryCombination, Permutation::get($sourceDataSet, $i));
+		}
+		//echo  (microtime(true) - $start);
+	}
 
     /**
      * ACTION
@@ -124,90 +135,9 @@ class GameManager
         $this->determinatePriority();
 
 
-
-        $TFactoryPriority = array_merge($this->TNeuFactory, $this->TMyFactory, $this->TAdvFactory);
-        usort($TFactoryPriority, array('Tools', 'orderByPriority'));
-
         $action = $this->sendBomb();
         if (!empty($action)) $TAction[] = $action;
 
-        foreach ($TFactoryPriority as &$factory)
-        {
-            $skip = false;
-            if ($factory->bomb_is_coming > 0)
-            {
-                $cyborgsCountIsComing = $this->getCyborgsIsComing($factory);
-
-                if ($cyborgsCountIsComing < 12) // TODO à arbitrer
-                {
-                    // TODO envoyer des troops à l'attaque dans le bon timing
-                    $TMyFactory = $factory->getMyFactoryAround($factory);
-                    foreach ($TMyFactory as &$myFactory)
-                    {
-                        if ($myFactory->getDistance($factory) > $factory->bomb_is_coming)
-                        {
-                            $toSend = 2;
-                            if ($myFactory->cyborgsCount > 0)
-                            {
-                                $action = $this->createTroop($myFactory, $factory, $toSend); // Return "MOVE [id] [id] [nbCyborgs]" OU une chaine vide
-                                if (!empty($action))
-                                {
-                                    $skip = true;
-                                    $TAction[] = $action;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-
-            if (!$skip)
-            {
-                if (GameManager::$roundNumber == 1) $nbCyborgsToSend = $factory->cyborgsCount+1;
-				elseif (self::$percentMine > 90) $nbCyborgsToSend = $factory->cyborgsCount*2;
-				
-                else $nbCyborgsToSend = ceil($factory->cyborgsCount * 0.3); // TODO à déterminer pour éviter que toutes mes usines flood la même cible
-
-$r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
-                    //error_log(var_export($r,true));
-                    if ($r < 0) continue;
-					
-                $TMyFactory = $factory->getTMyFactoryNearestWithQty($nbCyborgsToSend);
-
-				$nbIsC=0;
-				if ($factory->player == 1)
-				{
-					$nbIsC = $this->getAllTroopGoingTo($factory->id, 1);
-					
-				}
-				
-				
-                foreach ($TMyFactory as &$myFactory)
-                {
-                    if($factory->id == $myFactory->id)
-                    {
-                        $nbCyborgsToSend -= $myFactory->cyborgsCount;
-                    }
-					elseif ($factory->player == 1 && $myFactory->cyborgsCount <= $nbIsC)
-					{
-						continue;
-					}
-                    else
-                    {
-                        if ($nbCyborgsToSend <= $factory->cyborgsCount) $toSend = $factory->cyborgsCount;
-                        else $toSend = $nbCyborgsToSend;
-
-                        $nbCyborgsToSend -= $toSend;
-
-                        $action = $this->createTroop($myFactory, $factory, $toSend); // Return "MOVE [id] [id] [nbCyborgs]" OU une chaine vide
-                        if (!empty($action)) $TAction[] = $action;
-                    }
-
-                    // TODO à vérifier mais normalement pas besoin de break si le reste à envoyer vos 0 car $TMyFactory contient se qu'il faut
-                }
-            }
-        }
 
         if (empty($TAction)) return 'WAIT';
         else return implode(';', $TAction);
@@ -225,39 +155,36 @@ $r = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
         $TMyKey = array_keys($this->TMyFactory);
         $TMyKeyFactoryCombination = array();
 
-        $TAllKey = array_keys($this->TFactory); // TODO point d'optimisation, retirer les clés des usines avec une production à 0
-        $TAllKeyFactoryCombination = array();
-
-        $max_iteration = min(count($this->TMyFactory), 3);
+		$max_iteration = min(count($this->TMyFactory), 3);
         for ($i=1; $i<=$max_iteration; $i++)
         {
-            $TMyKeyFactoryCombination[] = $this->generateAllCombinations($TMyKey, $i);
+            $TMyKeyFactoryCombination = array_merge($TMyKeyFactoryCombination, $this->generateAllCombinations($TMyKey, $i));
         }
-
-        // TODO la génération de cette permutation peut être généré une seule fois au tout début de la partie
-$start = microtime(true);
-        $max_iteration = min(count($this->TFactory), 3);
-        for ($i=1; $i<=$max_iteration;$i++)
-        {
-            $TAllKeyFactoryCombination[] = $this->generateAllCombinations($TAllKey, $i);
-        }
-echo  (microtime(true) - $start);
-        //var_dump($TAllKeyFactoryCombination);
-        exit;
-        // TODO [ici] - je récupère toutes les combinaisons de mes usines pour les diffentes attaques possibles
-
-//        var_dump($TMyKeyFactoryCombination);
-//        exit;
-
-        // TODO [ici] - je récupère toutes les combinaisons des usines disponibles de la partie
-        //              pour comparer avec toutes les combinaisons de mes usines afin de déterminer
-        //              quelle combi est la plus avantageuse
-
-
-// TODO trouver le moyen de limiter la longueur
-
-        var_dump($TAllKeyFactoryCombination);
-        exit;
+		
+//		$best_i_lose = 0;
+		$best_i_win = 0;
+		$Comb_win = array();
+		foreach ($TMyKeyFactoryCombination as &$TMyFactoryId)
+		{
+//			$what_i_lose = 0;
+			$what_i_win = 0;
+			foreach ($TMyFactoryId as &$fk_factory)
+			{
+				$myFactory = &$this->TFactory[$fk_factory];
+				// TODO calculer ce que je gagne avec un WAIT
+				
+				if ($myFactory->cyborgsCount <= 0) continue;
+				// TODO calculer ce que je gagne avec un MOVE
+				//		-> cas 1: move sur ennemie
+				//		->cas 2: move sur allié
+				
+			}
+			
+			echo '--';
+		}
+		
+		var_dump($TMyKeyFactoryCombination);
+		exit;
 /*
         foreach ($TFactoryToMove as &$Tab)
         {
