@@ -9,21 +9,15 @@ class Factory
     public $roundLeftToProduct;
     public $arg5;
 
+    public $distMatrix=array();
+    public $TTroop=array();
     public $cyborgsCountAlreadyUsed;
 
-	public $TLink;
-	public $TDistance;
-
-	public $priority;
-
 	public $bomb_is_coming;
-    public $minimal_cyborgsCount;
     
     function __construct($id,$player,$cyborgsCount,$productionCount,$roundLeftToProduct,$arg5)
     {
         $this->id = $id;
-        $this->TLink = array();
-        $this->TDistance = array($id => 0);
         $this->update($player,$cyborgsCount,$productionCount,$roundLeftToProduct,$arg5);
     }
 	
@@ -35,153 +29,57 @@ class Factory
         $this->roundLeftToProduct = $roundLeftToProduct;
         $this->arg5 = $arg5;
 
-        $this->priority = 0;
         $this->cyborgsCountAlreadyUsed = 0;
     }
+    
+    function sendCyborgs($n)
+    {
+        if ($this->cyborgsCount < $n) $n = $this->cyborgsCount;
 
-    function addLink(&$factory, $distance)
-    {
-        $this->TLink[$factory->id] = &$factory;
-        $this->TDistance[$factory->id] = $distance;
+        $this->cyborgsCount -= $n;
+        return $n;
     }
     
-    function sendCyborgs($n, $force=false)
-    {
-        if ($force || $this->cyborgsCount - $n >= $this->minimal_cyborgsCount)
-        {
-            $this->cyborgsCount -= $n;
-            return $n;
-        }
-        
-        return 0;
-    }
-    
-    function getProdution()
+    function getProduction()
     {
         if ($this->player == 0) return 0;
         else return $this->productionCount;
     }
-	
-	function getDistance(&$targetFactory)
-	{
-		return !empty($this->TDistance[$targetFactory->id]) ? $this->TDistance[$targetFactory->id] : false;
-	}
 
-	function getAdvFactoryAround() // RIVAL
+	function getDistanceFrom(&$fk_target)
     {
-        return $this->getFactoryAround(-1);
+        return $this->distMatrix[$this->id][$fk_target];
     }
-    
-    function getNeuFactoryAround() // NEUTRAL
-    {
-        return $this->getFactoryAround(0);
-    }
-    
-    function getMyFactoryAround() // MINE
-    {
-        return $this->getFactoryAround(1);
-    }
-	
-    private function getFactoryAround($player)
-    {    
-        $TFactory = array();
-        
-        foreach ($this->TLink as &$factory)
-        {
-            if ($factory->player == $player) $TFactory[] = $factory;
-        }
-        
-        return $TFactory;
-    }
-	
-	public function getAdvFactoryNearest($option='')
-	{
-		return $this->getFactoryNearest(-1,$option);
-	}
-	
-	public function getNeuFactoryNearest($option='')
-	{
-		return $this->getFactoryNearest(0,$option);
-	}
-	
-	public function getMyFactoryNearest($option='')
-	{
-		return $this->getFactoryNearest(1,$option);
-	}
-	
-	private function getFactoryNearest($player,$option='')
-    {
-        $factoryNearest = null;
-        $distance = null;
 
-        foreach ($this->TLink as &$factory)
-        {
-            if ($factory->player == $player)
-            {
-                $d = $this->getDistance($factory);
-                if ($d !== false && ($d < $distance || $distance === null))
-                {
-                    $factoryNearest = $factory;
-                    $distance = $d;
-                }
-
-                if ($option == 'testCyborgsCountOnEquals')
-                {
-                    if ($d == $distance && $factoryNearest->cyborgsCount < $factory->cyborgsCount)
-                    {
-                        $factoryNearest = $factory;
-                        $distance = $d;
-                    }
+    // TODO à faire évoluter pour avoir le détail par temps d'arrivé
+    function getTCyborgsInComing()
+    {
+        $TCyborgsCount = array();
+        $TTroopByRoundLeft = $this->getTroopsInComing('all');
+        foreach ($TTroopByRoundLeft as $roundLeft => &$TTroop) {
+            foreach ($TTroop as &$troop) {
+                if ($troop->fk_factory_target == $this->id) {
+                    $TCyborgsCount[$roundLeft] += ($troop->player == 1 ? $troop->cyborgsCount : $troop->cyborgsCount*-1);
                 }
             }
         }
-        
-        return $factoryNearest;
+
+        // Pas besoin de sort(), $TTroopByRoundLeft est déjà trié
+        return $TCyborgsCount;
     }
 
-    /**
-     * Cas particulier dans les 1er tours, ou chaque adversaire possède 1 seule usine chacun
-     */
-    public function getPlayerFactoryNearest()
+    function getTroopsInComing($player)
     {
-        $myFactory = $this->getMyFactoryNearest();
-        $advFactory = $this->getAdvFactoryNearest();
-
-        if (!is_null($myFactory) && !is_null($advFactory))
-        {
-            $delta = $myFactory->getDistance($this) - $advFactory->getDistance($this);
-            if ($delta < 0) return $myFactory;
-            elseif ($delta > 0) return $advFactory;
-            return 0;
-        }
-
-        return -1;
-    }
-
-    public function getTMyFactoryNearestWithQty($minimalCyborgs)
-    {
-        $totalCyborgs = 0;
-        $TMyFactoryNearestWithQty = array();
-        $TMyFactory = $this->getMyFactoryAround();
-        Tools::orderByDistance($this, $TMyFactory);
-
-        if ($this->player == 1 && $this->cyborgsCount > 0)
-        {
-            $totalCyborgs += $this->cyborgsCount;
-        }
-
-        foreach ($TMyFactory as $i => &$factory)
-        {
-            if ($totalCyborgs >= $minimalCyborgs) break;
-
-            if ($factory->cyborgsCount > $minimalCyborgs)
-            {
-                $totalCyborgs += $factory->cyborgsCount;
-                $TMyFactoryNearestWithQty[] = $factory;
+        $TTroop = array();
+        foreach ($this->TTroop as &$troop) {
+            if ($player == 'all') {
+                if ($troop->fk_factory_target == $this->id) $TTroop[$troop->roundLeft][$troop->player][] = $troop;
+            } else {
+                if ($troop->fk_factory_target == $this->id && $troop->player == $player) $TTroop[$troop->roundLeft][] = $troop;
             }
-
         }
 
-        return $TMyFactoryNearestWithQty;
+        sort($TTroop);
+        return $TTroop;
     }
 }

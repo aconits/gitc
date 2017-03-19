@@ -23,13 +23,7 @@ class Troop
         $this->cyborgsCount = $cyborgsCount;
         $this->roundLeft = $roundLeft;
     }
-    
-    static function cmp_troop($a, $b)
-    {
-        if ($a->roundLeft == $b->roundLeft) return 0;
-        
-        return ($a->roundLeft > $b->roundLeft) ? 1 : -1;
-    }
+
 }
 
 

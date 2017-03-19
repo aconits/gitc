@@ -2,12 +2,13 @@
 
 // TODO remove
 require 'data.php';
+require './class/dijkstra.class.php';
 require './class/gamemanager.class.php';
 require './class/factory.class.php';
 require './class/troop.class.php';
 require './class/bomb.class.php';
 require './class/tools.class.php';
-require './class/permutation.class.php';
+
 
 $manager = new GameManager;
 
@@ -15,30 +16,30 @@ $manager = new GameManager;
 //fscanf(STDIN, "%d", $linkCount); // the number of links between factories
 
 
-//for ($i = 0; $i < $linkCount; $i++)
-//{
-//    fscanf(STDIN, "%d %d %d",$factory1,$factory2,$distance);
-//    $manager->addLink($factory1, $factory2, $distance);
-//
-//    //error_log(',\''.$factory1.' '.$factory2.' '.$distance.'\'');
-//}
+/*for ($i = 0; $i < $linkCount; $i++)
+{
+    fscanf(STDIN, "%d %d %d",$factory1,$factory2,$distance);
+    if ($distance > $manager->distanceMax) $manager->distanceMax = $distance;
+    GameManager::$distMatrix[$factory1][$factory2] = $distance;
+    GameManager::$distMatrix[$factory2][$factory1] = $distance;
+    //error_log(',\''.$factory1.' '.$factory2.' '.$distance.'\'');
+}*/
 
-$TFactId=array();
+
 foreach ($TLink as $s)
 {
     list($factory1, $factory2, $distance) = explode(' ', $s);
-    $manager->addLink($factory1, $factory2, $distance);
-	
-	$TFactId[$factory1] = $factory1;
-	$TFactId[$factory2] = $factory2;
-
-	if ($distance > GameManager::$maxDistance) GameManager::$maxDistance = $distance;
+    if ($distance > $manager->distanceMax) $manager->distanceMax = $distance;
+    GameManager::$distMatrix[$factory1][$factory2] = $distance;
+    GameManager::$distMatrix[$factory2][$factory1] = $distance;
 }
 
-GameManager::initAllCombinations($TFactId); // Pars du principe que toutes les usines sont liés entre elles
-unset($TFactId);
 
-//error_log(var_export($manager->TFactoryLink[14],true));
+$manager->dijkstra = new Dijkstra(GameManager::$distMatrix);
+
+//var_dump($manager->dijkstra->shortestPaths(7, 4, array()));
+
+
 //exit;
 // game loop
 while (TRUE)
