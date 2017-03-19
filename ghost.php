@@ -22,6 +22,7 @@ $manager = new GameManager;
 //
 //    //error_log(',\''.$factory1.' '.$factory2.' '.$distance.'\'');
 //}
+
 $TFactId=array();
 foreach ($TLink as $s)
 {
@@ -30,6 +31,8 @@ foreach ($TLink as $s)
 	
 	$TFactId[$factory1] = $factory1;
 	$TFactId[$factory2] = $factory2;
+
+	if ($distance > GameManager::$maxDistance) GameManager::$maxDistance = $distance;
 }
 
 GameManager::initAllCombinations($TFactId); // Pars du principe que toutes les usines sont liés entre elles

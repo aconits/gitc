@@ -5,8 +5,11 @@ class GameManager
     public static $percentMine;
 
     public static $roundNumber = 0;
+    public static $maxDistance = 0;
 	public static $TAllKeyFactoryCombination=array();
-	
+
+	public static $TLastTargetedByBomb=array();
+
     public $TFactory = array(); // Contain all factories
     public $TMyFactory = array(); // only mine
     public $TNeuFactory = array();
@@ -50,7 +53,7 @@ class GameManager
 
     private function initFactoryLink()
     {
-        if (!$this->initLinks) return;
+        if ($this->initLinks) return;
 
         $this->initLinks = true;
         foreach ($this->TFactoryLink as $fk_factory => &$Tab)
@@ -132,23 +135,155 @@ class GameManager
     {
         $TAction = array();
 
-        $this->determinatePriority();
+        $TFactoryToMove = $this->determinatePriority();
+        krsort($TFactoryToMove); // Le meilleur move est en fin tableau
 
+        foreach ($TFactoryToMove as &$Tab)
+        {
+            $action = $this->dispatchAttack($Tab['from'],$Tab['to']);
+            if (!empty($action)) $TAction[] = $action;
+        }
 
         $action = $this->sendBomb();
         if (!empty($action)) $TAction[] = $action;
 
+        // TODO intégrer la notion INCREASE
 
         if (empty($TAction)) return 'WAIT';
         else return implode(';', $TAction);
     }
-	
+
+    private function dispatchAttack(&$TMyFactoryId,&$TTargetFactoryId)
+    {
+        $TAction = array();
+//var_dump($TTargetFactoryId);
+        foreach ($TTargetFactoryId as &$fk_factory_target)
+        {
+            if ($this->TFactory[$fk_factory_target]->player == 1) $nbCyborgsToSend = $this->getCyborgsCountToProtect($TMyFactoryId,$this->TFactory[$fk_factory_target]);
+            else $nbCyborgsToSend = $this->getCyborgsCountToCapture($TMyFactoryId,$this->TFactory[$fk_factory_target], false, true);
+//var_dump($fk_factory_target.' => '.$nbCyborgsToSend);
+            foreach ($TMyFactoryId as &$fk_factory)
+            {
+                $nbSend = $this->TMyFactory[$fk_factory]->cyborgsCount;
+                if ($nbSend > $nbCyborgsToSend) $nbSend = $nbCyborgsToSend;
+
+                $action = $this->createTroop($this->TMyFactory[$fk_factory],$this->TFactory[$fk_factory_target],$nbSend);
+                if (!empty($action)) $TAction[] = $action;
+
+                $nbCyborgsToSend -= $nbSend;
+                if ($nbCyborgsToSend == 0) break;
+            }
+        }
+
+        return implode(';', $TAction);
+    }
+
+    private function getCyborgsCountToCapture(&$TMyFactoryId,&$targetFactory,$useAlreadyUsed=false,$debug=false)
+    {
+        $nbCyborgsToCapture = $targetFactory->cyborgsCount;
+        $prod = $targetFactory->player == 0 ? 0 : $targetFactory->productionCount;
+        $TTroop = $this->getAllTroopGoingTo($targetFactory->id, 'all');
+//        if ($debug)
+//        {
+//            var_dump(' check id = '.$targetFactory->id.' nb = '.$nbCyborgsToCapture.' count ttroop = '.count($TTroop));
+//
+//        }
+        $lastRoundLeft=0;
+        foreach ($TTroop as $nbRoundLeft => &$Tab)
+        {
+            $nbCyborgsToCapture += $prod * ($nbRoundLeft - $lastRoundLeft);
+
+            $lastRoundLeft = $nbRoundLeft;
+
+            if (isset($Tab[-1])) foreach ($Tab[-1] as &$troop) $nbCyborgsToCapture += $troop->cyborgsCount;
+            if (isset($Tab[1])) foreach ($Tab[1] as &$troop) $nbCyborgsToCapture -= $troop->cyborgsCount;
+        }
+
+        if ($nbCyborgsToCapture >= 0)
+        {
+            if ($prod > 0)
+            {
+                $totalCyborgsAvailable = 0;
+                foreach ($TMyFactoryId as &$fk_factory)
+                {
+                    if ($this->TMyFactory[$fk_factory]->TDistance[$targetFactory->id] > $lastRoundLeft)
+                    {
+                        $nbCyborgsToCapture += $prod * ($this->TMyFactory[$fk_factory]->TDistance[$targetFactory->id] - $lastRoundLeft);
+                        $lastRoundLeft = $this->TMyFactory[$fk_factory]->TDistance[$targetFactory->id];
+                    }
+
+                    $tot = $totalCyborgsAvailable + $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                    if ($tot > $nbCyborgsToCapture)
+                    {
+                        $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed += $nbCyborgsToCapture - $totalCyborgsAvailable + 1;
+                        return $nbCyborgsToCapture+1;
+                    }
+                    else
+                    {
+                        $totalCyborgsAvailable += $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                        if ($useAlreadyUsed) $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed += $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                    }
+                }
+            }
+
+            return $nbCyborgsToCapture+1;
+        }
+
+        return 0;
+    }
+
+    private function getCyborgsCountToProtect(&$TMyFactoryId,$myFactoryTarget,$useAlreadyUsed=false)
+    {
+        $nbCyborgsToProtect = $myFactoryTarget->cyborgsCount;
+        $prod = $myFactoryTarget->productionCount;
+        $TTroop = $this->getAllTroopGoingTo($myFactoryTarget->id, 'all');
+
+        $lastRoundLeft=0;
+        foreach ($TTroop as $nbRoundLeft => &$Tab)
+        {
+            $nbCyborgsToProtect += $prod * ($nbRoundLeft - $lastRoundLeft);
+
+            $lastRoundLeft = $nbRoundLeft;
+
+            if (isset($Tab[-1])) foreach ($Tab[-1] as &$troop) $nbCyborgsToProtect -= $troop->cyborgsCount;
+            if (isset($Tab[1])) foreach ($Tab[1] as &$troop) $nbCyborgsToProtect += $troop->cyborgsCount;
+        }
+
+        if ($nbCyborgsToProtect > 0) return 0;
+        else
+        {
+            $nbCyborgsToProtect = abs($nbCyborgsToProtect);
+            $totalCyborgsAvailable = 0;
+            foreach ($TMyFactoryId as &$fk_factory)
+            {
+                if ($this->TMyFactory[$fk_factory]->TDistance[$myFactoryTarget->id] > $lastRoundLeft)
+                {
+                    $nbCyborgsToProtect += $prod * ($this->TMyFactory[$fk_factory]->TDistance[$myFactoryTarget->id] - $lastRoundLeft);
+                    $lastRoundLeft = $this->TMyFactory[$fk_factory]->TDistance[$myFactoryTarget->id];
+                }
+
+                $tot = $totalCyborgsAvailable + $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                if ($tot > $nbCyborgsToProtect)
+                {
+                    $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed += $nbCyborgsToProtect - $totalCyborgsAvailable + 1;
+                    return $nbCyborgsToProtect+1;
+                }
+                else
+                {
+                    $totalCyborgsAvailable += $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                    if ($useAlreadyUsed) $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed += $this->TMyFactory[$fk_factory]->cyborgsCount - $this->TMyFactory[$fk_factory]->cyborgsCountAlreadyUsed;
+                }
+            }
+        }
+
+        if ($nbCyborgsToProtect > 0) return $nbCyborgsToProtect;
+        return 0;
+    }
 
 	private function generateAllCombinations(&$sourceDataSet, $subsetSize=null)
 	{
         return Permutation::get($sourceDataSet, $subsetSize);
 	}
-
 
     private function determinatePriority()
     {
@@ -160,119 +295,62 @@ class GameManager
         {
             $TMyKeyFactoryCombination = array_merge($TMyKeyFactoryCombination, $this->generateAllCombinations($TMyKey, $i));
         }
-		
-//		$best_i_lose = 0;
-		$best_i_win = 0;
-		$Comb_win = array();
+
+        $i=0;
+
+		$TBestMove = array();
 		foreach ($TMyKeyFactoryCombination as &$TMyFactoryId)
 		{
-//			$what_i_lose = 0;
-			$what_i_win = 0;
-			foreach ($TMyFactoryId as &$fk_factory)
-			{
-				$myFactory = &$this->TFactory[$fk_factory];
-				// TODO calculer ce que je gagne avec un WAIT
-				
-				if ($myFactory->cyborgsCount <= 0) continue;
-				// TODO calculer ce que je gagne avec un MOVE
-				//		-> cas 1: move sur ennemie
-				//		->cas 2: move sur allié
-				
-			}
-			
-			echo '--';
-		}
-		
-		var_dump($TMyKeyFactoryCombination);
-		exit;
-/*
-        foreach ($TFactoryToMove as &$Tab)
-        {
-            $TMyFactory = &$Tab[0];
-            $TAdvFactory = &$Tab[1];
-
-            foreach ($TMyFactory as &$myFactory)
+            $bestTotal = 0;
+            $bestTargetId = array();
+			foreach (GameManager::$TAllKeyFactoryCombination as &$TTargetId)
             {
+                if (GameManager::$roundNumber <= 10 && in_array(1, $TTargetId)) continue;
 
+                reset($TTargetId);
+                $k = key($TTargetId);
+
+                if ($TMyFactoryId[0] == $TTargetId[$k]) continue;
+
+                $total = $this->calculGain($TMyFactoryId, $TTargetId);
+
+                if ($total > $bestTotal)
+                {
+                    $bestTotal = $total;
+                    $bestTargetId = array('from' => $TMyFactoryId, 'to' => $TTargetId);
+                }
             }
-        }
-*/
 
-return '';
-
-
-
-
-        $nbNeu = count($this->TNeuFactory);
-        $nbMine = count($this->TMyFactory);
-        $nbAdv = count($this->TAdvFactory);
-
-		$cyborgsCountAdv = 0;
-		$cyborgsCountMine = 0;
-		foreach ($this->TAdvFactory as &$f) $cyborgsCountAdv += $f->cyborgsCount;
-		foreach ($this->TAdvTroop as &$t) $cyborgsCountAdv += $t->cyborgsCount;
-		
-		foreach ($this->TMyFactory as &$f) $cyborgsCountMine += $f->cyborgsCount;
-		foreach ($this->TMyTroop as &$t) $cyborgsCountMine += $t->cyborgsCount;
-		
-		$total = $cyborgsCountAdv + $cyborgsCountMine;
-		self::$percentMine = $cyborgsCountMine * 100 / $total;
-		
-		$bonus_multiplicateur_adv = 1;
-		if (self::$percentMine > 90) {
-			$bonus_multiplicateur_adv = 3;
+            $TBestMove[] = $bestTargetId;
+            if ($i > 10) array_shift($TBestMove); // Je ne garde que les 10 derniers mouvement
+            $i++;
 		}
-		
-        // TODO déterminer les usines les plus produtif qui vont être capturer par l'ennemie
 
-        $bonus_multiplicateur = 1;
-        if ($nbNeu > $nbMine + $nbAdv) $bonus_multiplicateur = 2;
+		return $TBestMove;
+    }
 
-        // TODO dispatch TO neutral
-        foreach ($this->TNeuFactory as &$factory)
+    private function calculGain(&$TMyFactoryId, &$TTargetId)
+    {
+        $total = 0;
+        $total_nbCyborgsToSend = 0;
+// TODO count le nombre de cyborgs à disposition et le nécessaire, si j'en ai pas assé alors je stop le traitement
+        foreach ($TTargetId as &$fk_factory_target)
         {
-            $factory->priority += Tools::getPointFromProduction($factory);
-            $factory->priority += Tools::getPointFromPlayerProximity($factory, $bonus_multiplicateur);
+            if ($this->TFactory[$fk_factory_target]->player == 1) $nbCyborgsToSend = $this->getCyborgsCountToProtect($TMyFactoryId, $this->TFactory[$fk_factory_target], true);
+            else $nbCyborgsToSend = $this->getCyborgsCountToCapture($TMyFactoryId, $this->TFactory[$fk_factory_target], true);
 
-            //$factory->priority += $bonus; // TODO check si extra prio necessaire
-            // TODO peut etre ajouter des points en fonction du nombre de troop en route
-            $factory->priority = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
-
-            if ($factory->bomb_is_coming) $factory->priority += 500; // high priority car traitement spécifique
-            else
+            $max_distance_factory = 0;
+            foreach ($TMyFactoryId as &$fk_factory)
             {
-                $TTroop = $this->getAllTroopGoingTo($factory->id, 1);
-                $factory->priority += Tools::getPointFromTroopIsComing($factory, $TTroop);
+                // TODO à surveiller
+                if ($this->TMyFactory[$fk_factory]->TDistance[$fk_factory_target] > $max_distance_factory) $max_distance_factory = $this->TMyFactory[$fk_factory]->TDistance[$fk_factory_target];
             }
+
+            $total += $this->TFactory[$fk_factory_target]->productionCount * (GameManager::$maxDistance - $max_distance_factory);
+            $total_nbCyborgsToSend += $nbCyborgsToSend;
         }
-
-
-        foreach ($this->TAdvFactory as &$factory)
-        {
-            $factory->priority += Tools::getPointFromProduction($factory);
-           
-			$p = Tools::getPointFromPlayerProximity($factory, $bonus_multiplicateur_adv);
-            if ($bonus_multiplicateur_adv > 1) { $p = abs($p); error_log('$p == '.$p); }
-$factory->priority += $p;
-
-            // TODO method pour savoir le total distance de mes usines est le plus faible
-            // Tools::getPointFromTotalDistance($factory, 1);
-
-            // TODO method pour diminuer la priority si je suis sur le point de la capturer
-            $factory->priority = Tools::getPointFromWillBeCaptured($factory, $this->TTroop);
-
-            if ($factory->bomb_is_coming) $factory->priority += 500; // high priority car traitement spécifique
-
-            $TTroop = $this->getAllTroopGoingTo($factory->id, 1);
-            $factory->priority += Tools::getPointFromTroopIsComing($factory, $TTroop);
-        }
-
-        // TODO write loop pour déterminer la priority de mes usines à défendre
-        /*foreach ($this->TMyFactory as &$factory)
-        {
-            // TODO calculer le nombre de troop en route pour pour stop l'envoi et prioriser l'attaque
-            if ($factory->bomb_is_coming && true) $factory->priority += 500; // high priority car traitement spécifique
-        }*/
+//TODO à surveiller
+        return $total;
     }
 
     function getCyborgsMake($player)
@@ -329,10 +407,16 @@ $factory->priority += $p;
 
     private function createTroop(&$myFactory, &$targetFactory, $nbCyborgsToSend)
     {
-        $Troop = new Troop($this->nextTroopId, 1, $myFactory->id, $targetFactory->id, $nbCyborgsToSend, $myFactory->getDistance($targetFactory));
-        $this->nextTroopId++;
         $cyborgs = $myFactory->sendCyborgs($nbCyborgsToSend, true);
-        if ($cyborgs > 0) return 'MOVE '.$myFactory->id.' '.$targetFactory->id.' '.$cyborgs;
+        if ($cyborgs > 0)
+        {
+            $troop = new Troop($this->nextTroopId, 1, $myFactory->id, $targetFactory->id, $cyborgs, $myFactory->getDistance($targetFactory));
+            $this->TTroop[$troop->id] = &$troop;
+            $this->TMyTroop[$troop->id] = &$troop;
+            $this->nextTroopId++;
+
+            return 'MOVE '.$myFactory->id.' '.$targetFactory->id.' '.$cyborgs;
+        }
 
         return '';
     }
@@ -357,8 +441,6 @@ $factory->priority += $p;
     {
         $this->TFactory[$id]->update($player,$cyborgsCount,$production,$roundLeftToProduct,$arg5);
     }
-
-
 
 
     /**
@@ -397,13 +479,18 @@ $factory->priority += $p;
 
         foreach ($this->TTroop as &$troop)
         {
-            if ($troop->fk_factory_target == $fk_factory_target && $troop->player == $player)
+            if ($player == 'all')
             {
-                $TTroop[] = $troop;
+                if ($troop->fk_factory_target == $fk_factory_target) $TTroop[$troop->roundLeft][$troop->player][] = $troop;
+            }
+            else
+            {
+                if ($troop->fk_factory_target == $fk_factory_target && $troop->player == $player) $TTroop[$troop->roundLeft][] = $troop;
             }
         }
 
-        usort($TTroop, array("Troop", "cmp_troop"));
+        //usort($TTroop, array('Troop', 'cmp_troop'));
+        sort($TTroop);
 
         return $TTroop;
     }

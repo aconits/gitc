@@ -8,8 +8,10 @@ class Factory
     public $productionCount;
     public $roundLeftToProduct;
     public $arg5;
-    
-	private $TLink;
+
+    public $cyborgsCountAlreadyUsed;
+
+	public $TLink;
 	public $TDistance;
 
 	public $priority;
@@ -20,7 +22,8 @@ class Factory
     function __construct($id,$player,$cyborgsCount,$productionCount,$roundLeftToProduct,$arg5)
     {
         $this->id = $id;
-		$this->TLink = array();
+        $this->TLink = array();
+        $this->TDistance = array($id => 0);
         $this->update($player,$cyborgsCount,$productionCount,$roundLeftToProduct,$arg5);
     }
 	
@@ -33,7 +36,7 @@ class Factory
         $this->arg5 = $arg5;
 
         $this->priority = 0;
-        $this->minimal_cyborgsCount = 0;
+        $this->cyborgsCountAlreadyUsed = 0;
     }
 
     function addLink(&$factory, $distance)
