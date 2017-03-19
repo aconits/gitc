@@ -150,8 +150,8 @@ class GameManager
             }
 
         }
-var_dump($TAction);
-        exit;
+//var_dump($TAction);
+
         $action = $this->sendBomb();
         if (!empty($action)) $TAction[] = $action;
 
@@ -174,14 +174,14 @@ var_dump($TAction);
         }
 
         $cyborgsCountTotal = $targetFactory->getProduction() * $distanceTotal + $targetFactory->cyborgsCount;
-        if ($targetFactory->id == 2) var_dump($distanceTotal.' $cyborgsCountTotal == '.$cyborgsCountTotal);
+
         $cyborgsCountInProgress = 0;
         if (!empty($TCyborgsInComing)) {
             foreach ($TCyborgsInComing as $roundLeft => $cyborgsCount) {
                 $cyborgsCountInProgress += $cyborgsCount; // $cyborgsCount peut être négatif s'il y a plus d'unitées adverses
             }
         }
-        if ($targetFactory->id == 2) var_dump('$cyborgsCountInProgress == '.$cyborgsCountInProgress);
+
         // $cyborgsCountInProgress => Si < 0 alors l'adversaire va la capturer ou j'ai pas envoyé assé de cyborgs
         //                              Si > 0 alors je vais la capturer
         //                              Si == 0 alors j'ai pas envoyé assé de cyborgs
@@ -195,7 +195,7 @@ var_dump($TAction);
             if ($myFactory->cyborgsCount > $myFactory->productionCount) $cyborgsToSend = $myFactory->productionCount + 1;
             else $cyborgsToSend = $myFactory->productionCount;
         }
-        //if ($targetFactory->id == 2) var_dump($cyborgsToSend);
+
         return 'MOVE '.$myFactory->id.' '.$targetFactory->id.' '.$cyborgsToSend;
     }
 

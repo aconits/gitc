@@ -58,7 +58,9 @@ class Factory
         $TTroopByRoundLeft = $this->getTroopsInComing('all');
         foreach ($TTroopByRoundLeft as $roundLeft => &$TTroop) {
             foreach ($TTroop as &$troop) {
+                //var_dump($troop);
                 if ($troop->fk_factory_target == $this->id) {
+                    if (!isset($TCyborgsCount[$roundLeft])) $TCyborgsCount[$roundLeft] = 0;
                     $TCyborgsCount[$roundLeft] += ($troop->player == 1 ? $troop->cyborgsCount : $troop->cyborgsCount*-1);
                 }
             }
@@ -73,7 +75,7 @@ class Factory
         $TTroop = array();
         foreach ($this->TTroop as &$troop) {
             if ($player == 'all') {
-                if ($troop->fk_factory_target == $this->id) $TTroop[$troop->roundLeft][$troop->player][] = $troop;
+                if ($troop->fk_factory_target == $this->id) $TTroop[$troop->roundLeft][] = $troop;
             } else {
                 if ($troop->fk_factory_target == $this->id && $troop->player == $player) $TTroop[$troop->roundLeft][] = $troop;
             }
@@ -81,5 +83,40 @@ class Factory
 
         sort($TTroop);
         return $TTroop;
+    }
+
+    // TODO remove après rework de l'envoi de bomb
+    public function getMyFactoryNearest($option='')
+    {
+        return $this->getFactoryNearest(1,$option);
+    }
+
+    // TODO remove après rework de l'envoi de bomb
+    private function getFactoryNearest($player,$option='')
+    {
+        $factoryNearest = null;
+        $distance = null;
+        foreach ($this->TLink as &$factory)
+        {
+            if ($factory->player == $player)
+            {
+                $d = $this->getDistance($factory);
+                if ($d !== false && ($d < $distance || $distance === null))
+                {
+                    $factoryNearest = $factory;
+                    $distance = $d;
+                }
+                if ($option == 'testCyborgsCountOnEquals')
+                {
+                    if ($d == $distance && $factoryNearest->cyborgsCount < $factory->cyborgsCount)
+                    {
+                        $factoryNearest = $factory;
+                        $distance = $d;
+                    }
+                }
+            }
+        }
+
+        return $factoryNearest;
     }
 }
