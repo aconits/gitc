@@ -251,39 +251,53 @@ class GameManager
         $bestFactory = null;
         if (Bomb::$bombCount == 0) return '';
 
-        $maxProduction = 0;
-        foreach ($this->TFactory as &$f)
-        {
-            if ($f->productionCount > $maxProduction) $maxProduction = $f->productionCount;
-        }
-
 // TODO déterminer la production la plus élevé et avec mon usine la plus proche :: uniquement si aucune bomb est en cours de route
-        foreach ($this->TAdvFactory as &$factory)
-        {
-            if (!$factory->bomb_is_coming && !isset(self::$TLastTargetedByBomb[$factory->id]) && $factory->productionCount > $maxProduction-1)
-            {
-                if ($bestFactory === null) $bestFactory = &$factory;
-                elseif ($bestFactory->productionCount < $factory->productionCount) $bestFactory = &$factory;
-                elseif ($bestFactory->productionCount == $factory->productionCount)
-                {
-                    if ($bestFactory->cyborgsCount < $factory->cyborgsCount) $bestFactory = &$factory;
-                }
+
+        $maxProduction = 0;
+
+        $TFactoryToCheck = $this->getTAdvFactoryWithNeutral();
+        foreach ($TFactoryToCheck as &$targetFactory) {
+            if ($targetFactory->productionCount > $maxProduction) $maxProduction = $targetFactory->productionCount;
+        }
+        foreach ($TFactoryToCheck as &$targetFactory) {
+            if ($targetFactory->bomb_is_coming) continue;
+
+            if ($bestFactory === null) $bestFactory = &$targetFactory;
+            elseif ($bestFactory->productionCount < $targetFactory->productionCount) $bestFactory = &$factory;
+            elseif ($bestFactory->productionCount == $targetFactory->productionCount) {
+                if ($bestFactory->cyborgsCount < $factory->cyborgsCount) $bestFactory = &$factory;
             }
+
         }
 
         if ($bestFactory !== null)
         {
-            $myFactory = $bestFactory->getMyFactoryNearest();
+            $myFactory = $this->getFactoryNearest($bestFactory, 1);
             if (!empty($myFactory))
             {
-                self::$TLastTargetedByBomb[$factory->id] = true;
-
+                $bestFactory->bomb_is_coming = self::$distMatrix[$bestFactory->id][$myFactory->id];
                 Bomb::$bombCount--;
                 return 'BOMB '.$myFactory->id.' '.$bestFactory->id;
             }
         }
 
         return '';
+    }
+
+    private function getFactoryNearest(&$factory,$player,$option='')
+    {
+        $factoryNearest = null;
+        $distance = null;
+        foreach (self::$distMatrix[$factory->id] as $fk_factory => $dist) {
+            if ($this->TFactory[$fk_factory]->player == $player) {
+                if ($dist < $distance || $distance === null) {
+                    $factoryNearest = &$factory;
+                    $distance = $dist;
+                }
+            }
+        }
+
+        return $factoryNearest;
     }
 
     private function createTroop(&$myFactory, &$targetFactory, $nbCyborgsToSend)

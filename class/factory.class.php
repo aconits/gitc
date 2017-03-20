@@ -85,38 +85,4 @@ class Factory
         return $TTroop;
     }
 
-    // TODO remove après rework de l'envoi de bomb
-    public function getMyFactoryNearest($option='')
-    {
-        return $this->getFactoryNearest(1,$option);
-    }
-
-    // TODO remove après rework de l'envoi de bomb
-    private function getFactoryNearest($player,$option='')
-    {
-        $factoryNearest = null;
-        $distance = null;
-        foreach ($this->TLink as &$factory)
-        {
-            if ($factory->player == $player)
-            {
-                $d = $this->getDistance($factory);
-                if ($d !== false && ($d < $distance || $distance === null))
-                {
-                    $factoryNearest = $factory;
-                    $distance = $d;
-                }
-                if ($option == 'testCyborgsCountOnEquals')
-                {
-                    if ($d == $distance && $factoryNearest->cyborgsCount < $factory->cyborgsCount)
-                    {
-                        $factoryNearest = $factory;
-                        $distance = $d;
-                    }
-                }
-            }
-        }
-
-        return $factoryNearest;
-    }
 }
