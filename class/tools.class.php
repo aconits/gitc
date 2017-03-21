@@ -39,6 +39,7 @@ class Tools
         if (empty($TCyborgsInComing)) $TCyborgsInComing = $TCyborgsInComingToMerge;
         else {
             foreach ($TCyborgsInComingToMerge as $roundLeft => $cyborgsCount) {
+				if (!isset($TCyborgsInComing[$roundLeft])) $TCyborgsInComing[$roundLeft] = 0;
                 $TCyborgsInComing[$roundLeft] += $cyborgsCount;
             }
         }

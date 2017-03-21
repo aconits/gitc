@@ -157,6 +157,10 @@ class GameManager
 
         // TODO intégrer la notion INCREASE
 
+		
+		$TAction[] = 'MSG '.$this->mineProduction.' || '.$this->hisProduction;
+
+		
         if (empty($TAction)) return 'WAIT';
         else return implode(';', $TAction);
     }
@@ -283,7 +287,30 @@ class GameManager
 
         return '';
     }
+	
+	// Retourne les Usines adverse + les neutres sur le point d'être capturé
+	private function getTAdvFactoryWithNeutral()
+	{
+		$TFactory = $this->TAdvFactory;
+		
+		foreach ($this->TNeuFactory as &$neuFactory) {
+			if ($this->willBeUnderControl($neuFactory, -1)) $TFactory[] = $neuFactory;
+		}
+		
+		return $TFactory;
+	}
 
+	private function willBeUnderControl(Factory &$neuFactory, $player)
+	{
+		$TCyborgsCount = $neuFactory->getTCyborgsInComing();
+		$cyborgsCount = array_sum($TCyborgsCount);
+		
+		if ($player == 1) return $cyborgsCount > 0;
+		else return $cyborgsCount < 0;
+		
+		return null;
+	}
+	
     private function getFactoryNearest(&$factory,$player,$option='')
     {
         $factoryNearest = null;
@@ -291,7 +318,7 @@ class GameManager
         foreach (self::$distMatrix[$factory->id] as $fk_factory => $dist) {
             if ($this->TFactory[$fk_factory]->player == $player) {
                 if ($dist < $distance || $distance === null) {
-                    $factoryNearest = &$factory;
+                    $factoryNearest = &$this->TFactory[$fk_factory];
                     $distance = $dist;
                 }
             }
